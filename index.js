@@ -23,7 +23,8 @@ async function run() {
     // await client.connect();
 
     const collegeCollection = client.db("collegeDB").collection("colleges");
-    
+    const admissionCollection = client.db("collegeDB").collection("admission");
+
 
 
     //College related api----------------------
@@ -108,6 +109,29 @@ async function run() {
       const result = await propertyCollection.deleteOne(query);
       res.send(result);
     })
+
+
+    // Admission Related Api------------------------------
+    app.post('/admission', async (req, res) => {
+      const admission = req.body; 
+      const result = await admissionCollection.insertOne(admission);
+      res.send(result);
+    });
+
+//     app.post('/admission', async (req, res) => {
+//   try {
+//     console.log("Admission Data Received:", req.body); // 👈 log for debugging
+
+//     // যদি image use করো, multer/formidable ছাড়া body পাবা না!
+//     await admissionCollection.insertOne(req.body);
+    
+//     res.send({ success: true });
+//   } catch (error) {
+//     console.error("❌ Error in /admission route:", error);
+//     res.status(500).send({ success: false, message: error.message });
+//   }
+// });
+
 
 
     //wishlist related api-----------------------
