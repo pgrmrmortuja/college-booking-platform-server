@@ -25,6 +25,7 @@ async function run() {
     const collegeCollection = client.db("collegeDB").collection("colleges");
     const admissionCollection = client.db("collegeDB").collection("admission");
     const reviewCollection = client.db("collegeDB").collection("reviews");
+    const userCollection = client.db("collegeDB").collection("users");
 
 
 
