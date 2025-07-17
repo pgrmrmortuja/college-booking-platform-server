@@ -113,25 +113,83 @@ async function run() {
 
 
     // Admission Related Api------------------------------
+
+    app.get('/my-college/:email', async (req, res) => {
+      const email = req.params.email;
+      const filter = { email: email };
+      const result = await admissionCollection.find(filter).toArray();
+      res.send(result);
+    })
+
     app.post('/admission', async (req, res) => {
-      const admission = req.body; 
+      const admission = req.body;
       const result = await admissionCollection.insertOne(admission);
       res.send(result);
     });
 
-//     app.post('/admission', async (req, res) => {
-//   try {
-//     console.log("Admission Data Received:", req.body); // 👈 log for debugging
 
-//     // যদি image use করো, multer/formidable ছাড়া body পাবা না!
-//     await admissionCollection.insertOne(req.body);
-    
-//     res.send({ success: true });
-//   } catch (error) {
-//     console.error("❌ Error in /admission route:", error);
-//     res.status(500).send({ success: false, message: error.message });
-//   }
-// });
+    //Reviews Related Api------------------------------
+
+    // app.post('/review', async (req, res) => {
+    //   const review = req.body;
+
+    //   // রিভিউ কালেকশনে নতুন রিভিউ সংরক্ষণ
+    //   const insertResult = await reviewCollection.insertOne(review);
+
+    //   // কলেজ আইডি দিয়ে কলেজ কালেকশন থেকে তথ্য নাও
+    //   const collegeId = review.collegeId;
+    //   const college = await collegeCollection.findOne({ _id: new ObjectId(collegeId) });
+
+    //   // পুরনো রেটিং (string হলে number এ কনভার্ট করো)
+    //   const oldRating = parseFloat(college.rating) || 0;
+    //   const newRating = parseFloat(review.rating) || 0;
+
+    //   // গড় রেটিং ক্যালকুলেট করো
+    //   const updatedRating = ((oldRating + newRating) / 2).toFixed(1);
+
+    //   // কলেজ কালেকশন আপডেট করো
+    //   await collegeCollection.updateOne(
+    //     { _id: new ObjectId(collegeId) },
+    //     { $set: { rating: updatedRating } }
+    //   );
+
+    //   res.send(insertResult);
+    // });
+
+    app.post('/review', async (req, res) => {
+      const review = req.body;
+
+      // Step 1: Insert new review into reviewCollection
+      const insertResult = await reviewCollection.insertOne(review);
+
+      // Step 2: Get college info
+      const collegeId = review.collegeId;
+      const college = await collegeCollection.findOne({ _id: new ObjectId(collegeId) });
+
+      const oldRating = parseFloat(college?.rating) || 0;
+      const ratingCount = parseInt(college?.rating_count) || 0;
+      const newRating = parseFloat(review.rating) || 0;
+
+      // Step 3: Calculate updated average rating
+      const updatedRating = ((oldRating * ratingCount + newRating) / (ratingCount + 1)).toFixed(1);
+
+      // Step 4: Update collegeCollection with new average rating and increment rating_count
+      const updateResult = await collegeCollection.updateOne(
+        { _id: new ObjectId(collegeId) },
+        {
+          $set: { rating: updatedRating },
+          $inc: { rating_count: 1 }
+        }
+      );
+
+      // Step 5: Respond to client
+      res.send({
+        insertedId: insertResult.insertedId,
+        updatedRating,
+        updateResult
+      });
+    });
+
 
 
 
