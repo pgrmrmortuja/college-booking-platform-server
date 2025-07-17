@@ -28,6 +28,60 @@ async function run() {
     const userCollection = client.db("collegeDB").collection("users");
 
 
+    //User Related Api---------------------------
+    app.get('/users',  async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+
+
+    app.post('/users', async (req, res) => {
+      const user = req.body;
+      const existingUser = await userCollection.findOne({ email: user.email });
+
+      if (existingUser) {
+        return res.status(200).send({ message: 'User already exists' });
+      }
+
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
+
+
+    // app.patch('/user-role/:id', async (req, res) => {
+    //   const id = req.params.id;
+    //   const { role } = req.body; // Verified, Rejected, Fraud etc.
+    //   const filter = { _id: new ObjectId(id) };
+
+    //   const updatedDoc = {
+    //     $set: {
+    //       role: role
+    //     }
+    //   };
+
+    //   const result = await userCollection.updateOne(filter, updatedDoc);
+
+
+    //   if (role === "Fraud") {
+
+    //     const user = await userCollection.findOne(filter);
+    //     if (user?.email) {
+    //       const propertyFilter = { agent_email: user.email };
+    //       const deleteResult = await propertyCollection.deleteMany(propertyFilter);
+    //       console.log(`Deleted ${deleteResult.deletedCount} properties for Fraud agent.`);
+
+    //       return res.send({
+    //         modifiedCount: result.modifiedCount,
+    //         deletedProperties: deleteResult.deletedCount
+    //       });
+
+    //     }
+    //   }
+
+    //   res.send(result);
+    // });
+
+
 
     //College related api----------------------
 
