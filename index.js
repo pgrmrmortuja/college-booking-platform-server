@@ -29,9 +29,15 @@ async function run() {
 
 
     //User Related Api---------------------------
-    app.get('/users',  async (req, res) => {
-      const result = await userCollection.find().toArray();
-      res.send(result);
+    // app.get('/users', async (req, res) => {
+    //   const result = await userCollection.find().toArray();
+    //   res.send(result);
+    // });
+
+    app.get("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      const user = await userCollection.findOne({ email });
+      res.send(user);
     });
 
 
@@ -47,39 +53,17 @@ async function run() {
       res.send(result);
     });
 
+    app.patch("/users/:id", async (req, res) => {
+      const { id } = req.params;
+      const updatedFields = req.body;
 
-    // app.patch('/user-role/:id', async (req, res) => {
-    //   const id = req.params.id;
-    //   const { role } = req.body; // Verified, Rejected, Fraud etc.
-    //   const filter = { _id: new ObjectId(id) };
+      const result = await userCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updatedFields }
+      );
 
-    //   const updatedDoc = {
-    //     $set: {
-    //       role: role
-    //     }
-    //   };
-
-    //   const result = await userCollection.updateOne(filter, updatedDoc);
-
-
-    //   if (role === "Fraud") {
-
-    //     const user = await userCollection.findOne(filter);
-    //     if (user?.email) {
-    //       const propertyFilter = { agent_email: user.email };
-    //       const deleteResult = await propertyCollection.deleteMany(propertyFilter);
-    //       console.log(`Deleted ${deleteResult.deletedCount} properties for Fraud agent.`);
-
-    //       return res.send({
-    //         modifiedCount: result.modifiedCount,
-    //         deletedProperties: deleteResult.deletedCount
-    //       });
-
-    //     }
-    //   }
-
-    //   res.send(result);
-    // });
+      res.send(result);
+    });
 
 
 
@@ -90,79 +74,23 @@ async function run() {
       res.send(result);
     });
 
-    app.get('/agent-property/:email', async (req, res) => {
-      const email = req.params.email;
-      const filter = { agent_email: email };
-      const result = await propertyCollection.find(filter).toArray();
+    app.get("/search-colleges", async (req, res) => {
+      const search = req.query.search || "";
+      let query = {};
+
+      if (search) {
+        query.name = { $regex: search, $options: "i" }; // case-insensitive search
+      }
+
+      const result = await collegeCollection.find(query).toArray();
       res.send(result);
-    })
+    });
+
 
     app.get('/college/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await collegeCollection.findOne(query);
-      res.send(result);
-    })
-
-
-    app.get('/status/:verification_status', async (req, res) => {
-      const verification_status = req.params.verification_status;
-      const query = { verification_status: verification_status };
-      const result = await propertyCollection.find(query).toArray();
-      res.send(result);
-    })
-
-
-    app.post('/properties', async (req, res) => {
-      const property = req.body;
-      const result = await propertyCollection.insertOne(property);
-      res.send(result);
-    });
-
-
-    app.put('/property-id/:id', async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) }
-      const options = { upsert: true };
-      const update = req.body;
-      const property = {
-        $set: {
-          property_title: update.property_title,
-          property_location: update.property_location,
-          property_details: update.property_details,
-          price_range: {
-            minimum_price: parseFloat(update.price_range?.minimum_price),
-            maximum_price: parseFloat(update.price_range?.maximum_price),
-          },
-          property_image: update.property_image,
-
-        }
-
-      }
-
-      const result = await propertyCollection.updateOne(filter, property, options);
-      res.send(result);
-    })
-
-    app.patch('/property-id/:id', async (req, res) => {
-      const id = req.params.id;
-      const { verification_status } = req.body; // Verified or Rejected
-      const filter = { _id: new ObjectId(id) };
-      const updatedDoc = {
-        $set: {
-          verification_status: verification_status
-        }
-      }
-
-      const result = await propertyCollection.updateOne(filter, updatedDoc);
-      res.send(result);
-
-    });
-
-    app.delete('/properties/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await propertyCollection.deleteOne(query);
       res.send(result);
     })
 
@@ -178,8 +106,29 @@ async function run() {
 
     app.post('/admission', async (req, res) => {
       const admission = req.body;
-      const result = await admissionCollection.insertOne(admission);
-      res.send(result);
+      const { email, college_name, dob, address, phone } = admission;
+
+      try {
+        // 1️⃣ Save to admissionCollection
+        const result = await admissionCollection.insertOne(admission);
+
+        // 2️⃣ Update userCollection with extra fields (dob, address, phone)
+        const filter = { email };
+        const updateDoc = {
+          $set: {
+            college_name,
+            dob,
+            address,
+            phone
+          }
+        };
+        await userCollection.updateOne(filter, updateDoc);
+
+        res.send(result);
+      } catch (error) {
+        console.error('Error saving admission or updating user:', error);
+        res.status(500).send({ message: 'Something went wrong' });
+      }
     });
 
 
@@ -243,196 +192,6 @@ async function run() {
         updatedRating,
         updateResult
       });
-    });
-
-
-
-
-    //wishlist related api-----------------------
-
-    app.get('/wishlists/check/:id', async (req, res) => {
-      const { id } = req.params;
-      const { userEmail } = req.query;
-
-      const exists = await wishlistCollection.findOne({
-        myPropertyId: id,
-        userEmail: userEmail
-      });
-
-      if (exists) {
-        res.send({ exists: true });
-      } else {
-        res.send({ exists: false });
-      }
-    });
-
-    app.get('/wishlist-id/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { myPropertyId: id };
-      const result = await wishlistCollection.findOne(query);
-      res.send(result);
-    })
-
-    app.get('/my-wishlist/:email', async (req, res) => {
-      const email = req.params.email;
-      const filter = { userEmail: email };
-      const result = await wishlistCollection.find(filter).toArray();
-      res.send(result);
-    })
-
-    app.post('/wishlists', async (req, res) => {
-      const myProperty = req.body;
-      const result = await wishlistCollection.insertOne(myProperty);
-      res.send(result);
-    });
-
-    app.delete('/remove-wishlist/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await wishlistCollection.deleteOne(query);
-      res.send(result);
-    })
-
-
-    //offer related api--------------------------------
-
-    app.get('/user-offers-id/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await offerCollection.findOne(query);
-      res.send(result);
-    })
-
-    app.get('/user-offers/:email', async (req, res) => {
-      const email = req.params.email;
-      const filter = { buyer_email: email };
-      const result = await offerCollection.find(filter).toArray();
-      res.send(result);
-    })
-
-    app.get('/agent-offers/:email', async (req, res) => {
-      const email = req.params.email;
-      const filter = { agent_email: email };
-      const result = await offerCollection.find(filter).toArray();
-      res.send(result);
-    })
-
-    app.post('/offers', async (req, res) => {
-      const offerData = req.body;
-      const result = await offerCollection.insertOne(offerData);
-      res.send(result);
-    });
-
-    app.patch('/offer-status/:id', async (req, res) => {
-      const id = req.params.id;
-      const { status, myPropertyId } = req.body;
-      // Verified or Rejected
-      const filter = { _id: new ObjectId(id) };
-      const updatedDoc = {
-        $set: {
-          status: status
-        }
-      }
-
-      const result = await offerCollection.updateOne(filter, updatedDoc);
-
-      if (status === "accepted") {
-        const rejectFilter = {
-          myPropertyId: myPropertyId,
-          _id: { $ne: new ObjectId(id) }
-        };
-        const rejectUpdate = { $set: { status: "rejected" } };
-        await offerCollection.updateMany(rejectFilter, rejectUpdate);
-      }
-
-
-      res.send(result);
-
-    });
-
-
-
-
-    //reviews related api--------------------------------
-
-    app.get('/reviews', async (req, res) => {
-      const result = await reviewCollection.find().toArray();
-      res.send(result);
-    });
-
-    app.get('/review-id/:myPropertyId', async (req, res) => {
-      const myPropertyId = req.params.myPropertyId;
-      const query = { myPropertyId: myPropertyId };
-      const result = await reviewCollection.find(query).toArray();
-      res.send(result);
-    })
-
-    app.get('/my-review/:email', async (req, res) => {
-      const email = req.params.email;
-      const filter = { reviewer_email: email };
-      const result = await reviewCollection.find(filter).toArray();
-      res.send(result);
-    })
-
-
-    app.post('/reviews', async (req, res) => {
-      const property = req.body;
-      const result = await reviewCollection.insertOne(property);
-      res.send(result);
-    });
-
-    app.delete('/remove-review/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await reviewCollection.deleteOne(query);
-      res.send(result);
-    })
-
-
-
-    //advertise related api-----------------
-
-    app.get('/is-advertised/:id', async (req, res) => {
-      const propertyId = req.params.id;
-      const exists = await advertiseCollection.findOne({ _id: propertyId });
-
-      if (exists) {
-        res.send({ advertised: true });
-      } else {
-        res.send({ advertised: false });
-      }
-    });
-
-    app.get('/advertised-properties', async (req, res) => {
-      const advertisedProperties = await advertiseCollection.find({}, { _id: 1 }).toArray();
-      const advertisedIds = advertisedProperties.map(p => p._id);
-      res.send(advertisedIds);
-    });
-
-    app.get('/ad-details/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await advertiseCollection.findOne(query);
-      res.send(result);
-    })
-
-    app.get('/advertise-limited', async (req, res) => {
-      const limit = parseInt(req.query.limit) || 4;
-      const cursor = advertiseCollection.find()
-        .sort({ createdAt: -1 })
-        .limit(limit);
-
-      const result = await cursor.toArray();
-      res.send(result);
-    });
-
-
-    app.post('/advertise', async (req, res) => {
-      const property = req.body;
-      property.createdAt = new Date();
-
-      const result = await advertiseCollection.insertOne(property);
-      res.send(result);
     });
 
 
