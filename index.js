@@ -79,7 +79,7 @@ async function run() {
       let query = {};
 
       if (search) {
-        query.name = { $regex: search, $options: "i" }; // case-insensitive search
+        query.college_name = { $regex: search, $options: "i" };
       }
 
       const result = await collegeCollection.find(query).toArray();
@@ -159,6 +159,11 @@ async function run() {
 
     //   res.send(insertResult);
     // });
+
+    app.get('/reviews', async (req, res) => {
+      const result = await reviewCollection.find().toArray();
+      res.send(result);
+    });
 
     app.post('/review', async (req, res) => {
       const review = req.body;
